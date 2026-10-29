@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f2a">
+<title>몸놀이 오락실</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Jua&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0f2a;--ink:#f4f6ff;--muted:#9aa0c8;--pink:#ff3d8b;--cyan:#2de2e6;--yellow:#ffd23f;--green:#3dff9a;--line:rgba(255,255,255,.16)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--ink);overflow:hidden;font-family:'Jua',system-ui,-apple-system,sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;overscroll-behavior:none}
+#stage{position:fixed;inset:0}
+#video{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;opacity:.01;pointer-events:none}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#game{z-index:1}
+#cursor{z-index:6;pointer-events:none}
+.layer{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:max(20px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom));text-align:center}
+.hidden{display:none!important}
+.big{font-family:'Black Han Sans',sans-serif;line-height:1}
+#title h1{font-size:clamp(44px,12vw,104px);background:linear-gradient(90deg,var(--yellow),var(--pink) 55%,var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 24px rgba(255,61,139,.45))}
+#title .sub{margin-top:14px;font-size:clamp(16px,3.6vw,22px);color:var(--muted)}
+.tag{display:inline-block;margin-bottom:14px;padding:6px 14px;border:1px solid var(--line);border-radius:999px;font-size:14px;color:var(--cyan);letter-spacing:.14em}
+.btns{display:flex;flex-direction:column;gap:12px;margin-top:32px;width:min(360px,100%)}
+.btn{position:relative;overflow:hidden;font:inherit;font-size:20px;color:var(--bg);background:var(--yellow);border:2px solid var(--yellow);border-radius:18px;padding:16px 20px;cursor:pointer;box-shadow:0 6px 0 #b8901c;transition:transform .12s}
+.btn:active{transform:translateY(3px);box-shadow:0 3px 0 #b8901c}
+.btn:disabled{opacity:.5}
+.btn.alt{background:rgba(21,26,69,.7);color:var(--ink);border-color:var(--line);box-shadow:none}
+.btn::after,.card::after{content:'';position:absolute;left:0;bottom:0;height:7px;width:calc(var(--p,0)*100%);background:var(--pink)}
+#status{margin-top:18px;min-height:1.4em;color:var(--muted);font-size:15px;max-width:460px;line-height:1.5}
+#status.err{color:var(--pink)}
+.note{margin-top:10px;font-size:13px;color:var(--muted);opacity:.8}
+#menu{justify-content:flex-start;gap:14px;background:rgba(11,15,42,.3)}
+.mhead{width:min(900px,100%);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.mhead .big{font-size:clamp(26px,6vw,40px)}
+.pills{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{font-size:13px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line)}
+.grid{flex:1;width:min(900px,100%);display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0}
+.card{position:relative;overflow:hidden;border-radius:22px;border:2px solid var(--line);background:rgba(21,26,69,.72);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;cursor:pointer;color:var(--ink);font:inherit;transition:transform .15s,border-color .15s}
+.card .em{font-size:clamp(34px,8vw,56px)}
+.card .nm{font-family:'Black Han Sans',sans-serif;font-size:clamp(20px,4.6vw,30px);color:var(--c)}
+.card .ds{font-size:clamp(12px,2.8vw,15px);color:var(--muted);line-height:1.35}
+.card .bs{font-size:13px;color:var(--yellow);min-height:1em}
+.card.hovering,.btn.hovering{transform:scale(1.04);border-color:var(--yellow)}
+.hint{font-size:14px;color:var(--muted)}
+.small{font:inherit;font-size:14px;color:var(--muted);background:rgba(11,15,42,.5);border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer}
+#hud{position:absolute;z-index:4;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;padding:max(12px,env(safe-area-inset-top)) 16px 0;pointer-events:none}
+#hud .gname{font-size:14px;color:var(--muted);text-align:left}
+#hud .score{font-size:clamp(34px,8vw,56px);color:var(--yellow);text-shadow:0 0 18px rgba(255,210,63,.5);text-align:left}
+#hud .r{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+#hud .info{font-size:clamp(20px,5vw,30px)}
+#quit{pointer-events:auto}
+#poseBar{position:absolute;z-index:4;left:0;right:0;bottom:0;display:flex;gap:6px;justify-content:center;padding:0 8px max(12px,env(safe-area-inset-bottom));flex-wrap:wrap}
+#poseBar button{font:inherit;font-size:15px;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:rgba(21,26,69,.85);color:var(--ink)}
+#poseBar button:active{background:var(--pink)}
+#over{background:rgba(11,15,42,.6);gap:8px}
+#over .t{font-size:clamp(40px,10vw,80px);color:var(--pink)}
+#over .sc{font-size:clamp(64px,18vw,140px);color:var(--yellow)}
+#over .rec{font-size:18px;color:var(--muted);min-height:1.4em}
+#over .btns{flex-direction:row;margin-top:20px;width:min(560px,100%)}
+#over .btns .btn{flex:1;padding:24px 12px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="game"></canvas>
+
+  <section id="title" class="layer">
+    <div class="tag">BODY ARCADE</div>
+    <h1 class="big">몸놀이 오락실</h1>
+    <p class="sub">컨트롤러는 필요 없어요. 내 몸이 곧 게임기!</p>
+    <div class="btns">
+      <button class="btn" id="btnCam">📷 카메라로 시작</button>
+      <button class="btn alt" id="btnTouch">👆 카메라 없이 (터치·키보드)</button>
+    </div>
+    <p id="status"></p>
+    <p class="note">갤럭시·노트북은 Chrome, 아이폰은 Safari에서 열어주세요</p>
+  </section>
+
+  <section id="menu" class="layer hidden">
+    <div class="mhead">
+      <div class="big">게임 고르기</div>
+      <div class="pills"><span class="pill" id="modePill"></span><span class="pill" id="bodyPill"></span><button class="small" id="btnBack">처음으로</button></div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <p class="hint" id="menuHint"></p>
+  </section>
+
+  <div id="hud" class="hidden">
+    <div><div class="gname" id="hudName"></div><div class="score big" id="hudScore">0</div></div>
+    <div class="r"><button class="small" id="quit">✕ 그만하기</button><div class="info big" id="hudInfo"></div></div>
+  </div>
+  <div id="poseBar" class="hidden"></div>
+
+  <section id="over" class="layer hidden">
+    <div class="big t" id="overTitle">게임 끝!</div>
+    <div class="big sc" id="overScore">0</div>
+    <div class="rec" id="overRec"></div>
+    <div class="btns">
+      <button class="btn" id="btnRetry" data-hover>🔁 다시 하기</button>
+      <button class="btn alt" id="btnMenu" data-hover>🏠 메뉴로</button>
+    </div>
+  </section>
+
+  <canvas id="cursor"></canvas>
+</div>
+
+<script type="module">
+const MP = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+const COL = {pink:'#ff3d8b',cyan:'#2de2e6',yellow:'#ffd23f',green:'#3dff9a',red:'#ff4d4d',ink:'#f4f6ff',bg:'#0b0f2a'};
+const FONT = "'Black Han Sans', sans-serif";
+const $ = s => document.querySelector(s);
+const rand = (a,b) => a + Math.random()*(b-a);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+const cv = $('#game'), ctx = cv.getContext('2d');
+const cc = $('#cursor'), cctx = cc.getContext('2d');
+const video = $('#video');
+let W = 0, H = 0;
+function resize(){
+  const d = Math.min(2, devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  for (const [c,x] of [[cv,ctx],[cc,cctx]]) { c.width = Math.round(W*d); c.height = Math.round(H*d); x.setTransform(d,0,0,d,0,0); }
+}
+addEventListener('resize', resize); resize();
+const U = () => Math.min(W, H);
+
+/* ---------- 소리 ---------- */
+let AC = null;
+function initAudio(){ try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); AC.resume(); } catch(e){} }
+function beep(f=440, d=.12, type='sine', vol=.18, slide=1){
+  if (!AC) return;
+  try {
+    const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (slide !== 1) o.frequency.exponentialRampToValueAtTime(Math.max(30, f*slide), t+d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t+d);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+d+.02);
+  } catch(e){}
+}
+const SFX = {
+  pop: () => beep(rand(700,1000), .09, 'triangle', .2, 1.8),
+  jump: () => beep(380, .18, 'square', .08, 2.2),
+  hit: () => beep(140, .35, 'sawtooth', .2, .4),
+  good: () => { beep(660,.1,'triangle',.18); setTimeout(() => beep(990,.15,'triangle',.18), 90); },
+  tick: () => beep(520, .1, 'square', .08),
+  go: () => beep(1040, .3, 'square', .1),
+  star: () => beep(1320, .12, 'triangle', .15, 1.5),
+  select: () => beep(1200, .1, 'triangle', .15),
+};
+
+/* ---------- 최고 기록 ---------- */
+let BEST = {};
+try { BEST = JSON.parse(localStorage.getItem('bodyArcadeBest') || '{}') || {}; } catch(e){}
+function saveBest(){ try { localStorage.setItem('bodyArcadeBest', JSON.stringify(BEST)); } catch(e){} }
+
+/* ---------- 상태 ---------- */
+const S = {screen:'title', input:null, gameId:null, game:null, count:0, lastCount:0, shake:0};
+let landmarker = null;
+const B = {seen:false, last:0, P:null, hands:[], _h:null, mid:null, nose:null, sw:0, base:null, state:'stand', pose:'none'};
+const IN = {jumpEdge:false, touchDuck:false, keyDuck:false, keyDir:0, pointer:null, touchPose:null, touchPoseUntil:0};
+
+/* ---------- 몸 인식 ---------- */
+function coverRect(){
+  const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+  const s = Math.max(W/vw, H/vh), dw = vw*s, dh = vh*s;
+  return {ox:(W-dw)/2, oy:(H-dh)/2, dw, dh};
+}
+function updateBody(res, now){
+  const L = res && res.landmarks && res.landmarks[0];
+  if (!L) { if (now - B.last > 600) { B.seen = false; B.hands = []; } return; }
+  const R = coverRect();
+  const P = L.map(p => ({x:R.ox + (1-p.x)*R.dw, y:R.oy + p.y*R.dh, v:p.visibility ?? 1}));
+  B.seen = true; B.last = now; B.P = P;
+  const ls = P[11], rs = P[12];
+  const sw = Math.hypot(ls.x-rs.x, ls.y-rs.y) || 1;
+  B.sw = B.sw ? B.sw*.8 + sw*.2 : sw;
+  const mid = {x:(ls.x+rs.x)/2, y:(ls.y+rs.y)/2};
+  B.mid = mid; B.nose = P[0];
+
+  const raw = [P[19].v > .3 ? P[19] : P[15], P[20].v > .3 ? P[20] : P[16]];
+  const sm = raw.map((p,i) => { const q = B._h && B._h[i]; return q ? {x:q.x+(p.x-q.x)*.6, y:q.y+(p.y-q.y)*.6, v:p.v} : {...p}; });
+  B._h = sm;
+  B.hands = sm.filter(h => h.v > .25);
+
+  if (B.base == null) B.base = mid.y;
+  const d = (mid.y - B.base) / B.sw;
+  const prev = B.state;
+  B.state = d < -.3 ? 'jump' : d > .45 ? 'duck' : 'stand';
+  if (B.state === 'jump' && prev !== 'jump') IN.jumpEdge = true;
+  B.base += (mid.y - B.base) * (Math.abs(d) < .18 ? .04 : .002);
+  B.pose = classify(P);
+}
+function classify(P){
+  const sw = B.sw, n = P[0];
+  const [hl, hr] = [P[15], P[16]].sort((a,b) => a.x - b.x);
+  const [sl, sr] = [P[11], P[12]].sort((a,b) => a.x - b.x);
+  const up = h => h.y < n.y - .15*sw;
+  const flatL = Math.abs(hl.y - sl.y) < .5*sw && (sl.x - hl.x) > .9*sw;
+  const flatR = Math.abs(hr.y - sr.y) < .5*sw && (hr.x - sr.x) > .9*sw;
+  if (B.state === 'duck') return 'squat';
+  if (up(hl) && up(hr)) return 'hands_up';
+  if (flatL && flatR) return 't';
+  if (up(hl)) return 'left_up';
+  if (up(hr)) return 'right_up';
+  return 'none';
+}
+function calib(){ if (B.mid) B.base = B.mid.y; }
+
+/* ---------- 이펙트 ---------- */
+const FX = [], TXT = [];
+function burst(x, y, color, n=16, power=1){
+  const u = U();
+  for (let i=0; i<n; i++){ const a = rand(0, Math.PI*2), s = rand(.2,.7)*u*power;
+    FX.push({x, y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, t:0, life:rand(.4,.8), r:u*rand(.006,.016), color}); }
+}
+function say(x, y, text, color=COL.ink, size){ TXT.push({x, y, text, color, size:size || U()*.07, t:0}); }
+function updFX(dt){
+  for (let i=FX.length-1; i>=0; i--){ const p = FX[i]; p.t += dt; p.x += p.vx*dt; p.y += p.vy*dt; p.vy += U()*1.2*dt; p.vx *= .98; if (p.t > p.life) FX.splice(i,1); }
+  for (let i=TXT.length-1; i>=0; i--){ const q = TXT[i]; q.t += dt; q.y -= U()*.12*dt; if (q.t > 1) TXT.splice(i,1); }
+}
+function drawFX(c){
+  for (const p of FX){ c.globalAlpha = 1 - p.t/p.life; c.fillStyle = p.color; c.beginPath(); c.arc(p.x, p.y, p.r, 0, 7); c.fill(); }
+  c.globalAlpha = 1; c.textAlign = 'center'; c.textBaseline = 'middle';
+  for (const q of TXT){
+    c.globalAlpha = Math.min(1, (1-q.t)*2); c.font = `${q.size}px ${FONT}`;
+    c.lineWidth = q.size*.14; c.strokeStyle = 'rgba(11,15,42,.85)'; c.strokeText(q.text, q.x, q.y);
+    c.fillStyle = q.color; c.fillText(q.text, q.x, q.y);
+  }
+  c.globalAlpha = 1;
+}
+function rr(c, x, y, w, h, r){ c.beginPath(); c.moveTo(x+r, y); c.arcTo(x+w, y, x+w, y+h, r); c.arcTo(x+w, y+h, x, y+h, r); c.arcTo(x, y+h, x, y, r); c.arcTo(x, y, x+w, y, r); c.closePath(); }
+function wrap(c, text, x, y, maxW, lh){
+  const words = text.split(' '); let line = ''; const lines = [];
+  for (const w of words){ const t = line ? line + ' ' + w : w; if (c.measureText(t).width > maxW && line){ lines.push(line); line = w; } else line = t; }
+  lines.push(line); lines.forEach((l,i) => c.fillText(l, x, y + i*lh));
+}
+
+/* ---------- 배경 · 뼈대 · 손 커서 ---------- */
+const STARS = Array.from({length:70}, () => ({x:Math.random(), y:Math.random(), s:Math.random()}));
+function drawBG(t){
+  ctx.fillStyle = COL.bg; ctx.fillRect(0, 0, W, H);
+  if (S.input === 'cam' && video.readyState >= 2){
+    const R = coverRect();
+    ctx.save(); ctx.translate(W, 0); ctx.scale(-1, 1); ctx.globalAlpha = .55;
+    ctx.drawImage(video, R.ox, R.oy, R.dw, R.dh); ctx.restore(); ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(11,15,42,.45)'; ctx.fillRect(0, 0, W, H);
+    return;
+  }
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0b0f2a'); g.addColorStop(1, '#2a0f45');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fff';
+  for (const s of STARS){ ctx.globalAlpha = .2 + .5*Math.abs(Math.sin(t/900 + s.s*9)); ctx.fillRect(s.x*W, s.y*H*.6, 1.6, 1.6); }
+  ctx.globalAlpha = 1;
+  const hy = H*.62; ctx.strokeStyle = 'rgba(255,61,139,.32)'; ctx.lineWidth = 1;
+  for (let i=-12; i<=12; i++){ ctx.beginPath(); ctx.moveTo(W/2 + i*W*.04, hy); ctx.lineTo(W/2 + i*W*.25, H); ctx.stroke(); }
+  const off = (t/1000) % 1;
+  for (let k=0; k<12; k++){ const z = (k+off)/12, y = hy + (H-hy)*z*z; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+}
+const BONES = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
+function drawSkeleton(c, alpha){
+  if (S.input !== 'cam' || !B.seen || !B.P) return;
+  const P = B.P;
+  c.save(); c.globalAlpha = alpha; c.strokeStyle = COL.cyan; c.lineWidth = Math.max(3, U()*.012); c.lineCap = 'round';
+  c.shadowColor = COL.cyan; c.shadowBlur = 12;
+  for (const [a,b] of BONES){ if (P[a].v < .3 || P[b].v < .3) continue; c.beginPath(); c.moveTo(P[a].x, P[a].y); c.lineTo(P[b].x, P[b].y); c.stroke(); }
+  c.beginPath(); c.arc(P[0].x, P[0].y, B.sw*.35, 0, 7); c.stroke();
+  c.restore();
+}
+function drawCursor(){
+  cctx.clearRect(0, 0, W, H);
+  if (S.input !== 'cam' || !B.seen) return;
+  const r = U()*.04;
+  B.hands.forEach((h,i) => {
+    const col = i ? COL.cyan : COL.pink;
+    cctx.save(); cctx.shadowColor = col; cctx.shadowBlur = 18; cctx.strokeStyle = col; cctx.lineWidth = 4;
+    cctx.beginPath(); cctx.arc(h.x, h.y, r, 0, 7); cctx.stroke();
+    cctx.fillStyle = col; cctx.beginPath(); cctx.arc(h.x, h.y, r*.3, 0, 7); cctx.fill(); cctx.restore();
+  });
+}
+
+/* ---------- 손으로 버튼 누르기 ---------- */
+const dwell = new Map(); let hoverCool = 0;
+function hoverUpdate(dt){
+  if (S.input !== 'cam' || !(S.screen === 'menu' || S.screen === 'over')) return;
+  hoverCool -= dt;
+  const els = [...document.querySelectorAll('[data-hover]')].filter(e => e.offsetParent !== null);
+  for (const el of els){
+    const r = el.getBoundingClientRect();
+    const inside = B.seen && B.hands.some(h => h.x >= r.left && h.x <= r.right && h.y >= r.top && h.y <= r.bottom);
+    let p = dwell.get(el) || 0;
+    p = inside && hoverCool <= 0 ? p + dt/1.1 : Math.max(0, p - dt*2);
+    dwell.set(el, p); el.style.setProperty('--p', p.toFixed(3)); el.classList.toggle('hovering', inside);
+    if (p >= 1){
+      dwell.clear(); els.forEach(e => { e.style.setProperty('--p', 0); e.classList.remove('hovering'); });
+      hoverCool = 1; SFX.select(); el.click(); break;
+    }
+  }
+}
+
+/* ---------- 자세 ---------- */
+const POSES = {
+  hands_up:{name:'만세!', key:'🙌 만세'},
+  t:{name:'T자!', key:'✈️ T자'},
+  left_up:{name:'◀ 이쪽 팔!', key:'◀ 팔'},
+  right_up:{name:'이쪽 팔 ▶', key:'팔 ▶'},
+  squat:{name:'쪼그려!', key:'🧎 쪼그려'},
+};
+const POSE_IDS = Object.keys(POSES);
+function curPose(){ if (performance.now() < IN.touchPoseUntil) return IN.touchPose; return S.input === 'cam' && B.seen ? B.pose : 'none'; }
+function isDuck(){ return (S.input === 'cam' && B.seen && B.state === 'duck') || IN.touchDuck || IN.keyDuck; }
+function setTouchPose(id){ IN.touchPose = id; IN.touchPoseUntil = performance.now() + 900; }
+
+const FIG = {
+  hands_up:{head:[0,-.78], sh:-.52, hip:.12, lh:[-.38,-1.08], rh:[.38,-1.08], lf:[-.22,.75], rf:[.22,.75]},
+  t:{head:[0,-.78], sh:-.52, hip:.12, lh:[-.8,-.52], rh:[.8,-.52], lf:[-.22,.75], rf:[.22,.75]},
+  left_up:{head:[0,-.78], sh:-.52, hip:.12, lh:[-.38,-1.08], rh:[.32,.08], lf:[-.22,.75], rf:[.22,.75]},
+  right_up:{head:[0,-.78], sh:-.52, hip:.12, lh:[-.32,.08], rh:[.38,-1.08], lf:[-.22,.75], rf:[.22,.75]},
+  squat:{head:[0,-.15], sh:.05, hip:.42, lh:[-.55,.1], rh:[.55,.1], lf:[-.3,.75], rf:[.3,.75], knee:true},
+};
+function drawFigure(c, id, cx, cy, s, color, lw){
+  const f = FIG[id];
+  c.save(); c.strokeStyle = color; c.fillStyle = color; c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round';
+  const P = p => [cx + p[0]*s, cy + p[1]*s];
+  const L = (a,b) => { c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); };
+  const sl = P([-.2, f.sh]), sr = P([.2, f.sh]), nk = P([0, f.sh]), hp = P([0, f.hip]);
+  L(sl, sr); L(nk, hp); L(sl, P(f.lh)); L(sr, P(f.rh));
+  if (f.knee){ const kl = P([-.42,.48]), kr = P([.42,.48]); L(hp, kl); L(kl, P(f.lf)); L(hp, kr); L(kr, P(f.rf)); }
+  else { L(hp, P(f.lf)); L(hp, P(f.rf)); }
+  const h = P(f.head); c.beginPath(); c.arc(h[0], h[1], s*.2, 0, 7); c.fill();
+  c.restore();
+}
+const hearts = n => '❤️'.repeat(Math.max(0,n)) + '🖤'.repeat(Math.max(0,3-n));
+
+/* ---------- 게임들 ---------- */
+const GAMES = {
+  runner:{
+    name:'점프 러너', em:'🏃', c:COL.yellow,
+    desc:'제자리 점프로 상자 넘기<br>쪼그려서 새 피하기',
+    how:'점프 = 상자 넘기 · 쪼그려 앉기 = 새 피하기',
+    touchHow:'화면 위쪽 탭 = 점프 · 아래쪽 꾹 = 숙이기',
+    init(){ Object.assign(this, {y:0, vy:0, obs:[], spawn:1.5, t:0, speed:1, lives:3, inv:0, score:0, scroll:0, duck:false}); },
+    info(){ return hearts(this.lives); },
+    update(dt){
+      const u = U(), gy = H*.8, px = W*.2, r = u*.07;
+      this.t += dt; this.speed = Math.min(2.3, 1 + this.t*.03); this.inv = Math.max(0, this.inv - dt);
+      if (IN.jumpEdge && this.y === 0){ this.vy = -H*1.5; SFX.jump(); }
+      this.vy += H*3.4*dt; this.y += this.vy*dt; if (this.y > 0){ this.y = 0; this.vy = 0; }
+      this.duck = isDuck() && this.y === 0;
+      const vx = W*.42*this.speed; this.scroll += vx*dt; this.score += dt*6*this.speed;
+      this.spawn -= dt;
+      if (this.spawn <= 0){
+        const bird = this.t > 5 && Math.random() < .38;
+        if (bird) this.obs.push({x:W+r, bird:true, w:r*1.7, h:r*.85, y:gy - r*2.65, f:0});
+        else { const h = r*rand(1.2,1.9); this.obs.push({x:W+r, bird:false, w:r*rand(.9,1.5), h, y:gy-h, f:0}); }
+        this.spawn = rand(1.05,1.9) / Math.sqrt(this.speed);
+      }
+      const py = gy + this.y, top = this.duck ? py - r*1.1 : py - r*2, pl = px - r*.8, pr = px + r*.8;
+      for (let i=this.obs.length-1; i>=0; i--){
+        const o = this.obs[i]; o.x -= vx*dt; o.f += dt;
+        if (!o.hit && this.inv <= 0 && o.x < pr && o.x + o.w > pl && o.y < py - 2 && o.y + o.h > top){
+          o.hit = true; this.lives--; this.inv = 1.3; S.shake = .35; SFX.hit();
+          burst(px, py - r, COL.pink, 22); say(px, top - u*.06, '앗!', COL.pink);
+          if (this.lives <= 0) return endGame();
+        }
+        if (!o.passed && o.x + o.w < pl){ o.passed = true; if (!o.hit){ this.score += 10; say(px + r*2, top - u*.05, '+10', COL.green, u*.05); } }
+        if (o.x + o.w < -20) this.obs.splice(i,1);
+      }
+    },
+    draw(c){
+      const u = U(), gy = H*.8, px = W*.2, r = u*.07;
+      c.save(); c.strokeStyle = COL.cyan; c.lineWidth = 4; c.shadowColor = COL.cyan; c.shadowBlur = 14;
+      c.beginPath(); c.moveTo(0, gy); c.lineTo(W, gy); c.stroke(); c.restore();
+      c.fillStyle = 'rgba(45,226,230,.3)'; const step = u*.18;
+      for (let x = -(this.scroll % step); x < W; x += step) c.fillRect(x, gy + 10, step*.45, 4);
+      for (const o of this.obs){
+        if (o.bird){
+          const fl = Math.sin(o.f*14)*o.h*.6, cx = o.x + o.w/2, cy = o.y + o.h/2;
+          c.fillStyle = COL.cyan; c.beginPath(); c.ellipse(cx, cy, o.w/2, o.h/2.4, 0, 0, 7); c.fill();
+          c.beginPath(); c.moveTo(o.x + o.w*.3, cy); c.lineTo(o.x + o.w*.55, cy - o.h*.9 - fl); c.lineTo(o.x + o.w*.75, cy); c.fill();
+          c.fillStyle = COL.yellow; c.beginPath(); c.moveTo(o.x + o.w*.02, cy - o.h*.1); c.lineTo(o.x - o.w*.2, cy + o.h*.05); c.lineTo(o.x + o.w*.05, cy + o.h*.2); c.fill();
+          c.fillStyle = COL.bg; c.beginPath(); c.arc(o.x + o.w*.2, o.y + o.h*.38, o.h*.1, 0, 7); c.fill();
+        } else {
+          c.fillStyle = o.hit ? 'rgba(255,61,139,.4)' : COL.pink; rr(c, o.x, o.y, o.w, o.h, 6); c.fill();
+          c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 3; c.beginPath();
+          c.moveTo(o.x + o.w*.2, o.y + o.h*.2); c.lineTo(o.x + o.w*.8, o.y + o.h*.8);
+          c.moveTo(o.x + o.w*.8, o.y + o.h*.2); c.lineTo(o.x + o.w*.2, o.y + o.h*.8); c.stroke();
+        }
+      }
+      if (this.inv > 0 && Math.floor(this.inv*12) % 2) return;
+      const py = gy + this.y;
+      c.fillStyle = COL.yellow; c.beginPath();
+      if (this.duck) c.ellipse(px, py - r*.55, r*1.25, r*.55, 0, 0, 7); else c.arc(px, py - r, r, 0, 7);
+      c.fill();
+      const ey = this.duck ? py - r*.65 : py - r*1.2;
+      c.fillStyle = COL.bg;
+      c.beginPath(); c.arc(px + r*.35, ey, r*.14, 0, 7); c.fill();
+      c.beginPath(); c.arc(px + r*.7, ey, r*.14, 0, 7); c.fill();
+    },
+  },
+
+  bubble:{
+    name:'버블 팡', em:'🫧', c:COL.cyan,
+    desc:'손으로 방울 터뜨리기<br>폭탄은 조심!',
+    how:'양손으로 방울을 톡! 빨간 폭탄은 피하기',
+    touchHow:'손가락으로 방울을 톡톡! 폭탄은 피하기',
+    init(){ Object.assign(this, {b:[], time:40, spawn:0, score:0, combo:0, ct:0, t:0}); },
+    info(){ return '⏱ ' + Math.ceil(this.time); },
+    update(dt){
+      const u = U();
+      this.t += dt; this.time -= dt; this.ct -= dt; if (this.ct <= 0) this.combo = 0;
+      if (this.time <= 0){ this.time = 0; return endGame(); }
+      this.spawn -= dt;
+      if (this.spawn <= 0){
+        const k = Math.random(), kind = this.t > 4 && k < .16 ? 'bomb' : k > .9 ? 'gold' : 'n';
+        const r = u*rand(.055,.09)*(kind === 'gold' ? .8 : 1);
+        this.b.push({x:rand(W*.1, W*.9), y:H + r, r, vy:-H*rand(.17,.28)*(1 + this.t/60), w:rand(0,6), kind});
+        this.spawn = Math.max(.22, .55 - this.t*.008);
+      }
+      const hr = u*.035;
+      for (let i=this.b.length-1; i>=0; i--){
+        const o = this.b[i]; o.y += o.vy*dt; o.x += Math.sin(this.t*2 + o.w)*u*.04*dt;
+        if (B.hands.some(h => Math.hypot(h.x - o.x, h.y - o.y) < o.r + hr)){
+          this.b.splice(i,1);
+          if (o.kind === 'bomb'){
+            this.score = Math.max(0, this.score - 10); this.combo = 0; S.shake = .4; SFX.hit();
+            burst(o.x, o.y, COL.red, 30, 1.4); say(o.x, o.y, '-10 펑!', COL.red);
+          } else {
+            this.combo++; this.ct = 1.1;
+            const m = Math.min(5, 1 + Math.floor(this.combo/5)), pts = (o.kind === 'gold' ? 5 : 1)*m;
+            this.score += pts; (o.kind === 'gold' ? SFX.star : SFX.pop)();
+            burst(o.x, o.y, o.kind === 'gold' ? COL.yellow : COL.cyan, 16);
+            say(o.x, o.y, '+' + pts + (m > 1 ? ' x' + m : ''), o.kind === 'gold' ? COL.yellow : COL.ink, u*.05);
+          }
+          continue;
+        }
+        if (o.y < -o.r) this.b.splice(i,1);
+      }
+    },
+    draw(c){
+      const u = U();
+      for (const o of this.b){
+        const g = c.createRadialGradient(o.x - o.r*.35, o.y - o.r*.35, o.r*.1, o.x, o.y, o.r);
+        if (o.kind === 'bomb'){ g.addColorStop(0, '#ff8a8a'); g.addColorStop(1, '#a3001b'); }
+        else if (o.kind === 'gold'){ g.addColorStop(0, '#fff6c2'); g.addColorStop(1, '#e0a800'); }
+        else { g.addColorStop(0, 'rgba(255,255,255,.85)'); g.addColorStop(.5, 'rgba(45,226,230,.35)'); g.addColorStop(1, 'rgba(45,226,230,.75)'); }
+        c.fillStyle = g; c.beginPath(); c.arc(o.x, o.y, o.r, 0, 7); c.fill();
+        if (o.kind !== 'n'){ c.font = `${o.r}px sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(o.kind === 'bomb' ? '💣' : '⭐', o.x, o.y + o.r*.05); }
+        else { c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 2; c.beginPath(); c.arc(o.x, o.y, o.r, 0, 7); c.stroke(); }
+      }
+      if (this.combo >= 5){ c.font = `${u*.07}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = COL.yellow; c.fillText(this.combo + ' 콤보!', W/2, H*.22); }
+    },
+  },
+
+  wall:{
+    name:'포즈 벽 통과', em:'🧱', c:COL.pink,
+    desc:'다가오는 벽 구멍과<br>똑같은 자세 만들기',
+    how:'벽에 뚫린 모양 그대로 자세를 잡아요!',
+    touchHow:'아래 버튼(키보드 1~5)으로 자세 고르기',
+    init(){ Object.assign(this, {score:0, lives:3, streak:0, n:0, gap:.4, pose:null, last:null, p:0, ok:false, T:3.4}); },
+    info(){ return hearts(this.lives); },
+    next(){
+      let id; do { id = POSE_IDS[Math.floor(Math.random()*POSE_IDS.length)]; } while (id === this.last);
+      this.pose = this.last = id; this.T = Math.max(1.8, 3.4 - this.n*.1); this.p = 0; this.ok = false; this.n++;
+    },
+    update(dt){
+      if (this.gap > 0){ this.gap -= dt; if (this.gap <= 0) this.next(); return; }
+      this.p += dt/this.T;
+      if (this.p > .5 && curPose() === this.pose) this.ok = true;
+      if (this.p >= 1){
+        const u = U();
+        if (this.ok){
+          this.streak++; const pts = 10 + 5*Math.min(this.streak - 1, 6); this.score += pts;
+          SFX.good(); burst(W/2, H/2, COL.green, 40, 1.5); say(W/2, H*.45, '통과! +' + pts, COL.green, u*.1);
+        } else {
+          this.streak = 0; this.lives--; S.shake = .5; SFX.hit();
+          burst(W/2, H/2, COL.pink, 40, 1.6); say(W/2, H*.45, '쾅!', COL.pink, u*.14);
+          if (this.lives <= 0){ this.pose = null; return endGame(); }
+        }
+        this.pose = null; this.gap = .7;
+      }
+    },
+    draw(c){
+      if (!this.pose) return;
+      const u = U(), e = this.p*this.p, s = .18 + .82*e;
+      const w = W*s, h = H*s, x = (W-w)/2, y = (H-h)/2;
+      c.save(); c.globalAlpha = .25 + .55*e;
+      c.fillStyle = this.ok ? '#1f9e63' : '#c2185b'; c.fillRect(x, y, w, h);
+      c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = Math.max(1, 2*s);
+      const bh = h/8;
+      for (let i=0; i<8; i++){
+        c.beginPath(); c.moveTo(x, y + i*bh); c.lineTo(x + w, y + i*bh); c.stroke();
+        const off = (i % 2)*w/12;
+        for (let j=0; j<6; j++){ const bx = x + off + j*w/6; c.beginPath(); c.moveTo(bx, y + i*bh); c.lineTo(bx, y + (i+1)*bh); c.stroke(); }
+      }
+      c.globalAlpha = 1;
+      const fs = Math.min(w, h)*.36;
+      drawFigure(c, this.pose, W/2, H/2 + fs*.1, fs, COL.bg, fs*.2);
+      c.restore();
+      const label = POSES[this.pose].name;
+      c.font = `${u*.1}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.lineWidth = u*.014; c.strokeStyle = COL.bg; c.strokeText(label, W/2, H*.2);
+      c.fillStyle = this.ok ? COL.green : COL.yellow; c.fillText(label, W/2, H*.2);
+      c.fillStyle = 'rgba(255,255,255,.15)'; c.fillRect(W*.2, H*.27, W*.6, 8);
+      c.fillStyle = this.ok ? COL.green : COL.yellow; c.fillRect(W*.2, H*.27, W*.6*(1 - this.p), 8);
+      const cp = curPose();
+      c.font = `${u*.05}px ${FONT}`; c.fillStyle = cp === this.pose ? COL.green : COL.ink;
+      c.fillText('내 자세: ' + (POSES[cp] ? POSES[cp].name : '—'), W/2, H*(S.input === 'touch' ? .78 : .9));
+    },
+  },
+
+  dodge:{
+    name:'운석 피하기', em:'☄️', c:COL.green,
+    desc:'몸을 좌우로 움직여<br>운석 피하고 별 먹기',
+    how:'몸을 왼쪽·오른쪽으로 옮겨서 우주선 조종!',
+    touchHow:'손가락을 좌우로 드래그 (키보드 ← →)',
+    init(){ Object.assign(this, {x:W/2, rocks:[], spawn:.8, t:0, lives:3, inv:0, score:0}); },
+    info(){ return hearts(this.lives); },
+    update(dt){
+      const u = U(); this.t += dt; this.inv = Math.max(0, this.inv - dt);
+      const sp = Math.min(2.4, 1 + this.t*.035); this.score += dt*5;
+      let tx = this.x;
+      if (IN.keyDir) tx = this.x + IN.keyDir*W*1.2*dt;
+      else if (S.input === 'cam' && B.seen && B.mid) tx = W/2 + (B.mid.x - W/2)*1.9;
+      else if (S.input === 'touch' && IN.pointer && (IN.pointer.down || IN.pointer.mouse)) tx = IN.pointer.x;
+      tx = clamp(tx, u*.06, W - u*.06); this.x += (tx - this.x)*Math.min(1, dt*12);
+      this.spawn -= dt;
+      if (this.spawn <= 0){
+        const star = Math.random() < .18, r = star ? u*.04 : u*rand(.035,.075);
+        this.rocks.push({x:rand(r, W-r), y:-r, r, vy:H*rand(.32,.55)*sp, star, rot:rand(0,6), vr:rand(-3,3)});
+        this.spawn = Math.max(.18, rand(.45,.8)/sp);
+      }
+      const sy = H*.85, sr = u*.05;
+      for (let i=this.rocks.length-1; i>=0; i--){
+        const o = this.rocks[i]; o.y += o.vy*dt; o.rot += o.vr*dt;
+        if (Math.hypot(o.x - this.x, o.y - sy) < o.r + sr*.8){
+          if (o.star){ this.score += 30; SFX.star(); burst(o.x, o.y, COL.yellow, 18); say(o.x, o.y - u*.04, '+30', COL.yellow, u*.05); this.rocks.splice(i,1); continue; }
+          if (this.inv <= 0){
+            this.lives--; this.inv = 1.3; S.shake = .4; SFX.hit(); burst(this.x, sy, COL.pink, 26); say(this.x, sy - u*.08, '으악!', COL.pink);
+            this.rocks.splice(i,1); if (this.lives <= 0) return endGame(); continue;
+          }
+        }
+        if (o.y > H + o.r) this.rocks.splice(i,1);
+      }
+    },
+    draw(c){
+      const u = U(), sy = H*.85, sr = u*.05;
+      for (const o of this.rocks){
+        if (o.star){ c.font = `${o.r*2}px sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('⭐', o.x, o.y); continue; }
+        c.fillStyle = 'rgba(255,61,139,.25)'; c.beginPath(); c.moveTo(o.x - o.r*.6, o.y - o.r*.5); c.lineTo(o.x, o.y - o.r*3); c.lineTo(o.x + o.r*.6, o.y - o.r*.5); c.fill();
+        c.save(); c.translate(o.x, o.y); c.rotate(o.rot); c.fillStyle = '#8a6a9e'; c.beginPath();
+        for (let k=0; k<8; k++){ const a = k/8*Math.PI*2, q = o.r*(k % 2 ? .85 : 1); c.lineTo(Math.cos(a)*q, Math.sin(a)*q); }
+        c.closePath(); c.fill(); c.fillStyle = 'rgba(0,0,0,.25)';
+        c.beginPath(); c.arc(o.r*.3, -o.r*.2, o.r*.22, 0, 7); c.fill();
+        c.beginPath(); c.arc(-o.r*.3, o.r*.3, o.r*.15, 0, 7); c.fill(); c.restore();
+      }
+      if (this.inv > 0 && Math.floor(this.inv*12) % 2) return;
+      const x = this.x, fl = sr*(.6 + Math.random()*.5);
+      c.fillStyle = 'rgba(255,210,63,.85)'; c.beginPath(); c.moveTo(x - sr*.35, sy + sr*.6); c.lineTo(x, sy + sr*.6 + fl); c.lineTo(x + sr*.35, sy + sr*.6); c.fill();
+      c.fillStyle = COL.cyan; c.beginPath(); c.moveTo(x, sy - sr*1.2); c.lineTo(x + sr, sy + sr*.7); c.lineTo(x, sy + sr*.35); c.lineTo(x - sr, sy + sr*.7); c.closePath(); c.fill();
+      c.fillStyle = COL.bg; c.beginPath(); c.arc(x, sy - sr*.2, sr*.22, 0, 7); c.fill();
+    },
+  },
+};
+
+/* ---------- 화면 흐름 ---------- */
+function show(id){ for (const s of ['title','menu','over']) $('#' + s).classList.toggle('hidden', s !== id); }
+function buildMenu(){
+  $('#modePill').textContent = S.input === 'cam' ? '📷 카메라 모드' : '👆 터치 모드';
+  $('#bodyPill').classList.toggle('hidden', S.input !== 'cam');
+  $('#menuHint').textContent = S.input === 'cam' ? '✋ 손을 카드 위에 1초 올려두면 선택돼요 (터치도 돼요)' : '카드를 눌러서 시작!';
+  $('#grid').innerHTML = Object.entries(GAMES).map(([id, g]) =>
+    `<button class="card" data-hover data-game="${id}" style="--c:${g.c}"><div class="em">${g.em}</div><div class="nm">${g.name}</div><div class="ds">${g.desc}</div><div class="bs">${BEST[id] ? '🏆 최고 ' + BEST[id] + '점' : ''}</div></button>`
+  ).join('');
+  document.querySelectorAll('.card').forEach(el => el.addEventListener('click', () => { initAudio(); startGame(el.dataset.game); }));
+}
+function goMenu(){
+  S.screen = 'menu'; S.game = null; show('menu');
+  $('#hud').classList.add('hidden'); $('#poseBar').classList.add('hidden');
+  buildMenu(); hoverCool = 1; FX.length = 0; TXT.length = 0;
+}
+function startGame(id){
+  S.gameId = id; S.game = GAMES[id]; S.game.init();
+  FX.length = 0; TXT.length = 0; S.shake = 0;
+  S.screen = 'count'; S.count = 3; S.lastCount = 4;
+  show(null);
+  $('#hud').classList.remove('hidden'); $('#hudName').textContent = S.game.em + ' ' + S.game.name; hudCache = '';
+  $('#poseBar').classList.toggle('hidden', !(id === 'wall' && S.input === 'touch'));
+  IN.touchDuck = false; IN.touchPoseUntil = 0;
+}
+function endGame(){
+  const id = S.gameId, sc = Math.floor(S.game.score), prev = BEST[id] || 0, rec = sc > prev && sc > 0;
+  if (rec){ BEST[id] = sc; saveBest(); }
+  S.screen = 'over';
+  $('#overTitle').textContent = rec ? '🎉 신기록!' : '게임 끝!';
+  $('#overScore').textContent = sc;
+  $('#overRec').textContent = rec ? (prev ? '이전 최고 ' + prev + '점' : '첫 기록이에요!') : '최고 기록 ' + prev + '점';
+  $('#poseBar').classList.add('hidden');
+  show('over'); hoverCool = 1.5;
+  if (rec) for (let i=0; i<6; i++) setTimeout(() => burst(rand(W*.2, W*.8), rand(H*.2, H*.5), [COL.yellow, COL.pink, COL.cyan, COL.green][i % 4], 24, 1.3), i*150);
+}
+let hudCache = '';
+function updateHUD(){
+  const g = S.game, s = Math.floor(g.score) + '|' + g.info();
+  if (s !== hudCache){ hudCache = s; $('#hudScore').textContent = Math.floor(g.score); $('#hudInfo').textContent = g.info(); }
+}
+let pillCache = '';
+function updateBodyPill(){
+  const t = B.seen ? '🟢 몸 인식 중' : '🔴 몸이 안 보여요';
+  if (t !== pillCache){ pillCache = t; $('#bodyPill').textContent = t; }
+}
+function drawCount(){
+  const g = S.game, u = U();
+  ctx.fillStyle = 'rgba(11,15,42,.45)'; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `${u*.3}px ${FONT}`; ctx.fillStyle = COL.yellow; ctx.fillText(Math.max(1, Math.ceil(S.count)), W/2, H*.42);
+  ctx.font = `${u*.055}px ${FONT}`; ctx.fillStyle = COL.ink;
+  wrap(ctx, S.input === 'cam' ? g.how : g.touchHow, W/2, H*.66, W*.86, u*.07);
+  if (S.input === 'cam'){ ctx.font = `${u*.04}px ${FONT}`; ctx.fillStyle = COL.cyan; ctx.fillText('상체 전체가 보이게 두세 걸음 뒤로! 똑바로 서주세요', W/2, H*.85); }
+}
+function drawMissing(){
+  const u = U(), t = '🙈 몸이 안 보여요! 카메라 앞에 서주세요';
+  ctx.font = `${u*.045}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(t).width + u*.08;
+  ctx.fillStyle = 'rgba(255,61,139,.9)'; rr(ctx, W/2 - w/2, H*.58 - u*.05, w, u*.1, u*.05); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.fillText(t, W/2, H*.58);
+}
+
+/* ---------- 카메라 · AI ---------- */
+async function startCam(){
+  initAudio();
+  const st = $('#status'), btn = $('#btnCam'); st.className = '';
+  if (landmarker && video.srcObject){ S.input = 'cam'; goMenu(); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    st.className = 'err';
+    st.textContent = '여기서는 카메라를 쓸 수 없어요. https 주소를 Chrome으로 직접 열어주세요. 앱 안 미리보기 화면은 카메라가 막혀 있어요.';
+    return;
+  }
+  btn.disabled = true;
+  if (!video.srcObject){
+    try {
+      st.textContent = '📷 카메라 켜는 중…';
+      const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user', width:{ideal:640}, height:{ideal:480}}, audio:false});
+      video.srcObject = stream; await video.play();
+    } catch(e){
+      btn.disabled = false; st.className = 'err';
+      st.textContent = e && e.name === 'NotAllowedError'
+        ? '카메라 권한이 거부됐어요. 크롬 주소창 왼쪽 아이콘 → 권한 → 카메라 허용으로 바꾸고 새로고침해주세요.'
+        : '카메라를 켤 수 없어요 (' + ((e && e.name) || '오류') + '). 다른 앱이 카메라를 쓰고 있는지 확인해주세요.';
+      return;
+    }
+  }
+  try {
+    st.textContent = '🧠 AI 몸 인식 모델 불러오는 중… (처음엔 10초쯤 걸려요)';
+    const v = await import(MP + '/vision_bundle.mjs');
+    const fs = await v.FilesetResolver.forVisionTasks(MP + '/wasm');
+    const opt = d => ({baseOptions:{modelAssetPath:MODEL, delegate:d}, runningMode:'VIDEO', numPoses:1, minPoseDetectionConfidence:.5, minTrackingConfidence:.5});
+    try { landmarker = await v.PoseLandmarker.createFromOptions(fs, opt('GPU')); }
+    catch(e){ landmarker = await v.PoseLandmarker.createFromOptions(fs, opt('CPU')); }
+  } catch(e){
+    btn.disabled = false; st.className = 'err';
+    st.textContent = 'AI 모델을 못 불러왔어요. 인터넷 연결 확인 후 다시 눌러주세요. (급하면 터치 모드로!)';
+    return;
+  }
+  st.textContent = ''; btn.disabled = false; S.input = 'cam'; goMenu();
+}
+
+/* ---------- 입력 ---------- */
+$('#btnCam').addEventListener('click', startCam);
+$('#btnTouch').addEventListener('click', () => { initAudio(); S.input = 'touch'; goMenu(); });
+$('#btnBack').addEventListener('click', () => { S.screen = 'title'; show('title'); });
+$('#quit').addEventListener('click', goMenu);
+$('#btnRetry').addEventListener('click', () => startGame(S.gameId));
+$('#btnMenu').addEventListener('click', goMenu);
+$('#poseBar').innerHTML = POSE_IDS.map((id,i) => `<button data-pose="${id}">${i+1}. ${POSES[id].key}</button>`).join('');
+$('#poseBar').querySelectorAll('button').forEach(b => b.addEventListener('pointerdown', e => { e.stopPropagation(); setTouchPose(b.dataset.pose); }));
+
+addEventListener('pointerdown', e => {
+  IN.pointer = {x:e.clientX, y:e.clientY, down:true, mouse:e.pointerType === 'mouse'};
+  if (S.screen === 'play' && S.input === 'touch' && S.gameId === 'runner' && !e.target.closest('button')){
+    if (e.clientY < H*.6) IN.jumpEdge = true; else IN.touchDuck = true;
+  }
+});
+addEventListener('pointermove', e => { IN.pointer = {x:e.clientX, y:e.clientY, down:IN.pointer ? IN.pointer.down : false, mouse:e.pointerType === 'mouse'}; });
+const up = () => { if (IN.pointer) IN.pointer.down = false; IN.touchDuck = false; };
+addEventListener('pointerup', up); addEventListener('pointercancel', up);
+addEventListener('keydown', e => {
+  if (e.repeat) return;
+  if (e.code === 'Space' || e.code === 'ArrowUp'){ IN.jumpEdge = true; e.preventDefault(); }
+  if (e.code === 'ArrowDown') IN.keyDuck = true;
+  if (e.code === 'ArrowLeft') IN.keyDir = -1;
+  if (e.code === 'ArrowRight') IN.keyDir = 1;
+  const k = '12345'.indexOf(e.key); if (k >= 0) setTouchPose(POSE_IDS[k]);
+});
+addEventListener('keyup', e => {
+  if (e.code === 'ArrowDown') IN.keyDuck = false;
+  if ((e.code === 'ArrowLeft' && IN.keyDir < 0) || (e.code === 'ArrowRight' && IN.keyDir > 0)) IN.keyDir = 0;
+});
+
+/* ---------- 메인 루프 ---------- */
+let lastT = performance.now(), lastVT = -1;
+function loop(t){
+  const dt = Math.min(.05, Math.max(0, (t - lastT)/1000)); lastT = t;
+  if (S.input === 'cam' && landmarker && video.readyState >= 2 && video.currentTime !== lastVT){
+    lastVT = video.currentTime;
+    try { updateBody(landmarker.detectForVideo(video, t), t); } catch(e){}
+  }
+  if (S.input === 'cam' && t - B.last > 600){ B.seen = false; B.hands = []; }
+  if (S.input === 'touch'){ const p = IN.pointer; B.hands = p && (p.down || p.mouse) ? [{x:p.x, y:p.y, v:1}] : []; }
+
+  if (S.screen === 'count'){
+    S.count -= dt; const n = Math.ceil(S.count);
+    if (n !== S.lastCount && n > 0){ S.lastCount = n; SFX.tick(); }
+    if (S.count <= 0){ calib(); S.screen = 'play'; SFX.go(); say(W/2, H/2, '시작!', COL.yellow, U()*.16); }
+  }
+  if (S.screen === 'play') S.game.update(dt);
+  updFX(dt); S.shake = Math.max(0, S.shake - dt);
+
+  drawBG(t);
+  const g = S.game, inGame = g && (S.screen === 'count' || S.screen === 'play' || S.screen === 'over');
+  ctx.save();
+  if (S.shake > 0){ const m = U()*.03*S.shake/.5; ctx.translate(rand(-m,m), rand(-m,m)); }
+  if (inGame) g.draw(ctx);
+  drawSkeleton(ctx, !inGame ? .85 : S.gameId === 'wall' ? .9 : S.gameId === 'bubble' ? .7 : .35);
+  drawFX(ctx);
+  ctx.restore();
+  if (S.screen === 'count') drawCount();
+  if (inGame && S.screen !== 'over' && S.input === 'cam' && !B.seen) drawMissing();
+  if (inGame) updateHUD();
+  if (S.screen === 'menu' && S.input === 'cam') updateBodyPill();
+  hoverUpdate(dt);
+  drawCursor();
+  IN.jumpEdge = false;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
